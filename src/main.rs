@@ -1,6 +1,7 @@
 use std::{
   io::{self, Read, Write},
   num::Wrapping,
+  ops::ControlFlow::{Break, Continue},
 };
 
 fn main() {
@@ -10,17 +11,18 @@ fn main() {
     data_pointer: 0,
     memory: [Wrapping(0); 30000],
     instruction_pointer: 0,
+    brackets: vec![0usize; 0],
   };
 
   while state.instruction_pointer < brainfuck_bytes.len() {
     execute_instruction(brainfuck_bytes, &mut state);
   }
 }
-
 struct State {
   instruction_pointer: usize,
   memory: [Wrapping<u8>; 30000],
   data_pointer: usize,
+  brackets: Vec<usize>,
 }
 
 fn execute_instruction(brainfuck_bytes: &[u8], state: &mut State) {
@@ -28,10 +30,11 @@ fn execute_instruction(brainfuck_bytes: &[u8], state: &mut State) {
     instruction_pointer,
     memory,
     data_pointer,
+    brackets,
   } = state;
   let char = brainfuck_bytes[*instruction_pointer];
   let cell = &mut memory[*data_pointer];
-  *instruction_pointer += 1;
+
   match char {
     b'>' => {
       *data_pointer += 1;
@@ -52,6 +55,37 @@ fn execute_instruction(brainfuck_bytes: &[u8], state: &mut State) {
       io::stdin().read_exact(&mut buffer).expect("Input error");
       cell.0 = buffer[0]
     }
+    b'[' => {
+      brackets.push(*instruction_pointer);
+      brainfuck_bytes[*instruction_pointer..brainfuck_bytes.len()]
+        .into_iter()
+        .enumerate()
+        .try_fold(0, |accum, (i, value)| {
+          let mut next = accum;
+          if *value == b']' {
+            next -= 1;
+          };
+          if *value == b'[' {
+            next += 1;
+          }
+          if next == 0 {
+            if cell.0 == 0 {
+              *instruction_pointer += i
+            }
+              Break(next)
+          } else {
+              Continue(next)
+          }
+      });
+    }
+    b']' => {
+      if cell.0 == 0 {
+        brackets.pop();
+      } else {
+        *instruction_pointer = *brackets.last().expect("Syntax error");
+      }
+    }
     _ => {}
   }
+  *instruction_pointer += 1;
 }
