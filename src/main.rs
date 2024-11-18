@@ -1,10 +1,17 @@
 use std::{
+  fs,
   io::{self, Read, Write},
   num::Wrapping,
 };
 
 fn main() {
-  let brainfuck_string = std::env::args().nth(1).expect("No brainfuck given");
+  let arguments: Vec<_> = std::env::args().collect();
+  let brainfuck_string = if arguments.get(1).expect("Must provide at least 1 argument") == "-f" {
+    let file_path = arguments.get(2).expect("Must provide a file path");
+    fs::read_to_string(file_path).expect("Should have been able to read the file")
+  } else {
+    arguments.get(1).expect("No brainfuck given").clone()
+  };
   let brainfuck_bytes = brainfuck_string.as_bytes();
   let mut state = State {
     data_pointer: 0,
