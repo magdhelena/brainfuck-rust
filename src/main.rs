@@ -2,8 +2,11 @@ use std::{
   cmp, fs,
   io::{self, Read, Write},
   num::Wrapping,
+  sync::atomic::AtomicBool,
+  sync::atomic::Ordering,
 };
 
+static STOPPED: AtomicBool = AtomicBool::new(false);
 fn main() {
   let arguments: Vec<_> = std::env::args().collect();
   let brainfuck_string = if arguments.get(1).expect("Must provide at least 1 argument") == "-f" {
@@ -19,10 +22,11 @@ fn main() {
     instruction_pointer: 0,
     brackets: vec![0usize; 0],
   };
-
-  while state.instruction_pointer < brainfuck_bytes.len() {
+  ctrlc::set_handler(|| STOPPED.store(true, Ordering::SeqCst)).expect("Set handler failed");
+  while state.instruction_pointer < brainfuck_bytes.len() && !STOPPED.load(Ordering::SeqCst) {
     if let Err(err) = execute_instruction(brainfuck_bytes, &mut state) {
-      println!("{err}");
+      io::stdout().flush().expect("Flush error");
+      eprintln!("{err}");
       debug(
         &state.instruction_pointer,
         &state.memory,
@@ -32,6 +36,8 @@ fn main() {
       break;
     }
   }
+  io::stdout().flush().expect("Flush error");
+  eprintln!("\nProgram finished");
 }
 struct State {
   instruction_pointer: usize,
@@ -113,7 +119,7 @@ fn debug(
       .iter()
       .enumerate()
       .map(|(i, cell)| if i == *data_pointer {
-        format!("\x1B[1m{}\x1B[0m", cell)
+        format!("\x1B[32m\x1B[1m{}\x1B[0m", cell)
       } else if cell.0 == 0 {
         format!("\x1B[2m{}\x1B[0m", cell)
       } else {
