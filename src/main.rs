@@ -67,24 +67,39 @@ fn execute_instruction(brainfuck_bytes: &[u8], state: &mut State) {
         *instruction_pointer = *brackets.last().expect("Syntax error");
       }
     }
+    b'#' => {
+      eprintln!(
+        "\nState:\ninstruction_pointer: {}\nmemory: {:?}\ndata_pointer: {}\nbrackets: {:?}\n",
+        instruction_pointer,
+        &memory[..=memory
+          .iter()
+          .enumerate()
+          .rev()
+          .find(|(_i, value)| value.0 != 0)
+          .unwrap()
+          .0],
+        data_pointer,
+        brackets
+      )
+    }
     _ => {}
   }
   *instruction_pointer += 1;
 }
 
 fn jump_to_matching_bracket(brainfuck_bytes: &[u8], instruction_pointer: &mut usize) {
-    let mut accum = 0;
-    for (i, value) in brainfuck_bytes[*instruction_pointer..].iter().enumerate() {
-      if *value == b']' {
-        accum -= 1;
-      };
-      if *value == b'[' {
-        accum += 1;
-      }
-      if accum == 0 {
-        *instruction_pointer += i;
-        return;
-      }
+  let mut accum = 0;
+  for (i, value) in brainfuck_bytes[*instruction_pointer..].iter().enumerate() {
+    if *value == b']' {
+      accum -= 1;
+    };
+    if *value == b'[' {
+      accum += 1;
     }
-    panic!("Syntax error");
+    if accum == 0 {
+      *instruction_pointer += i;
+      return;
+    }
+  }
+  panic!("Syntax error");
 }
