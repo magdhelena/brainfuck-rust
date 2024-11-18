@@ -72,9 +72,10 @@ fn execute_instruction(brainfuck_bytes: &[u8], state: &mut State) -> Result<(), 
       cell.0 = buffer[0]
     }
     b'[' => {
-      brackets.push(*instruction_pointer);
       if cell.0 == 0 {
         jump_to_matching_bracket(brainfuck_bytes, instruction_pointer);
+      } else {
+        brackets.push(*instruction_pointer);
       }
     }
     b']' => {
