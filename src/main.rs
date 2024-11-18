@@ -1,5 +1,5 @@
 use std::{
-  fs,
+  cmp, fs,
   io::{self, Read, Write},
   num::Wrapping,
 };
@@ -99,14 +99,28 @@ fn debug(
   brackets: &Vec<usize>,
 ) {
   eprintln!(
-    "\nState:\ninstruction_pointer: {}\nmemory: {:?}\ndata_pointer: {}\nbrackets: {:?}\n",
+    "\nState:\ninstruction_pointer: {}\nmemory: {}\ndata_pointer: {}\nbrackets: {:?}\n",
     instruction_pointer,
-    &memory[..=memory
+    &memory[..=cmp::max(
+      memory
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_i, value)| value.0 != 0)
+        .map_or(0, |(i, _)| i),
+      *data_pointer
+    )]
       .iter()
       .enumerate()
-      .rev()
-      .find(|(_i, value)| value.0 != 0)
-      .map_or(0, |(i, _)| i)],
+      .map(|(i, cell)| if i == *data_pointer {
+        format!("\x1B[1m{}\x1B[0m", cell)
+      } else if cell.0 == 0 {
+        format!("\x1B[2m{}\x1B[0m", cell)
+      } else {
+        format!("{cell}")
+      })
+      .collect::<Vec<_>>()
+      .join(", "),
     data_pointer,
     brackets
   )
