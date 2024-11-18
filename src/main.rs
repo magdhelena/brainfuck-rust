@@ -1,7 +1,6 @@
 use std::{
   io::{self, Read, Write},
   num::Wrapping,
-  ops::ControlFlow::{Break, Continue},
 };
 
 fn main() {
@@ -57,26 +56,9 @@ fn execute_instruction(brainfuck_bytes: &[u8], state: &mut State) {
     }
     b'[' => {
       brackets.push(*instruction_pointer);
-      brainfuck_bytes[*instruction_pointer..brainfuck_bytes.len()]
-        .into_iter()
-        .enumerate()
-        .try_fold(0, |accum, (i, value)| {
-          let mut next = accum;
-          if *value == b']' {
-            next -= 1;
-          };
-          if *value == b'[' {
-            next += 1;
-          }
-          if next == 0 {
-            if cell.0 == 0 {
-              *instruction_pointer += i
-            }
-              Break(next)
-          } else {
-              Continue(next)
-          }
-      });
+      if cell.0 == 0 {
+        jump_to_matching_bracket(brainfuck_bytes, instruction_pointer);
+      }
     }
     b']' => {
       if cell.0 == 0 {
@@ -88,4 +70,21 @@ fn execute_instruction(brainfuck_bytes: &[u8], state: &mut State) {
     _ => {}
   }
   *instruction_pointer += 1;
+}
+
+fn jump_to_matching_bracket(brainfuck_bytes: &[u8], instruction_pointer: &mut usize) {
+    let mut accum = 0;
+    for (i, value) in brainfuck_bytes[*instruction_pointer..].iter().enumerate() {
+      if *value == b']' {
+        accum -= 1;
+      };
+      if *value == b'[' {
+        accum += 1;
+      }
+      if accum == 0 {
+        *instruction_pointer += i;
+        return;
+      }
+    }
+    panic!("Syntax error");
 }
