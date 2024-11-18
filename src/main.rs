@@ -21,7 +21,16 @@ fn main() {
   };
 
   while state.instruction_pointer < brainfuck_bytes.len() {
-    execute_instruction(brainfuck_bytes, &mut state);
+    if let Err(err) = execute_instruction(brainfuck_bytes, &mut state) {
+      println!("{err}");
+      debug(
+        &state.instruction_pointer,
+        &state.memory,
+        &state.data_pointer,
+        &state.brackets,
+      );
+      break;
+    }
   }
 }
 struct State {
@@ -31,7 +40,7 @@ struct State {
   brackets: Vec<usize>,
 }
 
-fn execute_instruction(brainfuck_bytes: &[u8], state: &mut State) {
+fn execute_instruction(brainfuck_bytes: &[u8], state: &mut State) -> Result<(), &'static str> {
   let State {
     instruction_pointer,
     memory,
@@ -45,20 +54,21 @@ fn execute_instruction(brainfuck_bytes: &[u8], state: &mut State) {
     b'>' => {
       *data_pointer += 1;
       if *data_pointer >= memory.len().try_into().unwrap() {
-        panic!("Memory range exceeded")
+        return Err("Memory range exceeded");
       }
     }
-    b'<' => {
-      *data_pointer = data_pointer.checked_sub(1).expect("Memory range exceeded");
-    }
+    b'<' => *data_pointer = data_pointer.checked_sub(1).ok_or("Memory range exceeded")?,
     b'+' => *cell += 1,
     b'-' => *cell -= 1,
     b'.' => {
-      io::stdout().write(&[cell.0]).expect("Output error");
+      io::stdout().write(&[cell.0]).map_err(|_| "Output error")?;
     }
     b',' => {
+      io::stdout().flush().map_err(|_| "Flush error")?;
       let mut buffer = [0u8; 1];
-      io::stdin().read_exact(&mut buffer).expect("Input error");
+      io::stdin()
+        .read_exact(&mut buffer)
+        .map_err(|_| "Input error")?;
       cell.0 = buffer[0]
     }
     b'[' => {
@@ -71,27 +81,34 @@ fn execute_instruction(brainfuck_bytes: &[u8], state: &mut State) {
       if cell.0 == 0 {
         brackets.pop();
       } else {
-        *instruction_pointer = *brackets.last().expect("Syntax error");
+        *instruction_pointer = *brackets.last().ok_or("Syntax error")?
       }
     }
-    b'#' => {
-      eprintln!(
-        "\nState:\ninstruction_pointer: {}\nmemory: {:?}\ndata_pointer: {}\nbrackets: {:?}\n",
-        instruction_pointer,
-        &memory[..=memory
-          .iter()
-          .enumerate()
-          .rev()
-          .find(|(_i, value)| value.0 != 0)
-          .unwrap()
-          .0],
-        data_pointer,
-        brackets
-      )
-    }
+    b'#' => debug(instruction_pointer, memory, data_pointer, brackets),
     _ => {}
   }
   *instruction_pointer += 1;
+  Ok(())
+}
+
+fn debug(
+  instruction_pointer: &usize,
+  memory: &[Wrapping<u8>; 30000],
+  data_pointer: &usize,
+  brackets: &Vec<usize>,
+) {
+  eprintln!(
+    "\nState:\ninstruction_pointer: {}\nmemory: {:?}\ndata_pointer: {}\nbrackets: {:?}\n",
+    instruction_pointer,
+    &memory[..=memory
+      .iter()
+      .enumerate()
+      .rev()
+      .find(|(_i, value)| value.0 != 0)
+      .map_or(0, |(i, _)| i)],
+    data_pointer,
+    brackets
+  )
 }
 
 fn jump_to_matching_bracket(brainfuck_bytes: &[u8], instruction_pointer: &mut usize) {
